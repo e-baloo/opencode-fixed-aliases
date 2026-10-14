@@ -2,3 +2,4 @@ node_modules/
 dist/
 coverage/
 projet.txt
+/mise.toml
