@@ -7,7 +7,7 @@ export type ModelAliases = Record<string, string>
 
 const aliasNamePattern = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 
-export function validateAliases(value: unknown): ModelAliases {
+export const validateAliases = (value: unknown): ModelAliases => {
   if (value === undefined) return {}
   if (!isRecord(value)) {
     throw new Error("The plugin option 'aliases' must be an object of alias-to-model mappings.")
@@ -28,7 +28,7 @@ export function validateAliases(value: unknown): ModelAliases {
   return aliases
 }
 
-export function parseAliasReference(value: unknown): string | undefined {
+export const parseAliasReference = (value: unknown): string | undefined => {
   if (typeof value === "string") {
     if (!value.startsWith("alias/")) return undefined
     const name = value.slice("alias/".length)
@@ -47,7 +47,7 @@ export function parseAliasReference(value: unknown): string | undefined {
   return modelName
 }
 
-export function parseTarget(alias: string, target: string): ModelReference {
+export const parseTarget = (alias: string, target: string): ModelReference => {
   if (!/^[^/\s#]+\/[^/\s#]+(?:#[^/\s#]+)?$/.test(target)) {
     throw new Error(
       `Invalid target '${target}' for alias '${alias}'. Expected 'provider/model' with an optional fixed '#variant'.`,
@@ -57,13 +57,13 @@ export function parseTarget(alias: string, target: string): ModelReference {
   return Model.Ref.parse(target)
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 export const FixedAliasesPlugin = Plugin.define({
   id: "opencode.fixed-aliases",
-  async setup(ctx) {
+  setup: async (ctx) => {
     const aliases = validateAliases(ctx.options.aliases)
 
     await ctx.agent.transform((editor) => {
