@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    {
+      "package": "../",
+      "options": {
+        "aliases": {
+          "company-review": "anthropic/claude-haiku-4-5"
+        }
+      }
+    }
+  ],
+  "agents": {
+    "reviewer": {
+      "description": "Reviews code changes",
+      "mode": "subagent",
+      "model": "alias/company-review",
+      "system": "Review for correctness, security, and missing tests."
+    }
+  }
+}
