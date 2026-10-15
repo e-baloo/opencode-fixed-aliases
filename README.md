@@ -20,7 +20,24 @@ OpenCode agent model: anthropic/claude-4.5-haiku
 
 Keep agent and command workflows stable while changing the model target in one reviewed configuration entry.
 
+### OpenCode 2.0.29 Lifecycle
+
+Configured agents can be added after user plugins initialize. This local version
+reorders its agent transform when an `agent.updated` event exposes unresolved
+aliases, then reloads and verifies the agent models.
+
+Before each user prompt, it also applies the alias target to the session's model.
+This replaces the global default, a persisted model selection, or a manual model
+override for an alias-backed agent. Agents without aliases are unaffected.
+
+Diagnostics use the `[opencode.fixed-aliases]` prefix in OpenCode logs. The
+`model request` entry records the actual provider, model, and variant for each
+request; use `kind=primary` to distinguish agent responses from title generation.
+
 ## Configuration
+
+See [INSTALL.md](INSTALL.md) for GitHub installation, the local cache workaround,
+verification steps, and the planned npm registry installation.
 
 Add the plugin and its aliases to `opencode.jsonc`:
 

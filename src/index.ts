@@ -1,6 +1,7 @@
 import { Plugin } from "@opencode/plugin/effect"
+import type { AgentEditor } from "@opencode/plugin/effect/agent"
 import { Model } from "@opencode/schema/model"
-import { Effect } from "effect"
+import { Effect, Stream } from "effect"
 
 export type ModelReference = Model.Ref
 
@@ -69,8 +70,11 @@ export const FixedAliasesPlugin = Plugin.define({
       const aliases = validateAliases(ctx.options.aliases)
       yield* Effect.logInfo("[opencode.fixed-aliases] setup started", { aliases: Object.keys(aliases) })
 
-      const mappedAgents: Array<{ agent: string; alias: string; target: string }> = []
-      yield* ctx.agent.transform((editor) => {
+      const loggingContext = yield* Effect.context()
+      let agentTargets = new Map<string, ModelReference>()
+      const transform = (editor: AgentEditor) => {
+        const mappings: Array<{ agent: string; alias: string; target: string }> = []
+        const targets = new Map<string, ModelReference>()
         for (const agent of editor.list()) {
           const name = parseAliasReference(agent.model)
           if (!name) continue
@@ -86,14 +90,79 @@ export const FixedAliasesPlugin = Plugin.define({
           editor.update(`${agent.id}`, (draft) => {
             draft.model = model
           })
-          mappedAgents.push({ agent: agent.id, alias: name, target })
+          mappings.push({ agent: agent.id, alias: name, target })
+          targets.set(agent.id, model)
         }
-      })
+        agentTargets = targets
+        Effect.runSync(Effect.provideContext(
+          Effect.logInfo("[opencode.fixed-aliases] agent transform invoked", {
+            agentCount: editor.list().length,
+            mappings,
+          }),
+          loggingContext,
+        ))
+      }
+      let registration = yield* ctx.agent.transform(transform)
 
       yield* Effect.logInfo("[opencode.fixed-aliases] alias transform registered", {
         aliases: Object.keys(aliases),
-        mappings: mappedAgents,
       })
+
+      // Configured agents can be registered after user plugins during startup.
+      yield* Effect.forkScoped(Stream.runForEach(ctx.event.subscribe(), (event) =>
+        Effect.gen(function* () {
+          if (event.type !== "agent.updated" || event.location?.directory !== ctx.location.directory) return
+
+          const input = { location: { directory: ctx.location.directory } }
+          const agents = yield* Effect.orDie(ctx.agent.list(input))
+          if (!agents.data.some((agent) => parseAliasReference(agent.model))) return
+
+          yield* Effect.logInfo("[opencode.fixed-aliases] resolving configured agents after update")
+          yield* registration.dispose
+          registration = yield* ctx.agent.transform(transform)
+          yield* ctx.agent.reload()
+
+          const resolved = yield* Effect.orDie(ctx.agent.list(input))
+          const unresolved = resolved.data.filter((agent) => parseAliasReference(agent.model))
+          if (unresolved.length) {
+            yield* Effect.logError("[opencode.fixed-aliases] alias resolution failed", {
+              agents: unresolved.map((agent) => agent.id),
+            })
+            return yield* Effect.die(new Error("Configured agent aliases remain unresolved after reload."))
+          }
+          yield* Effect.logInfo("[opencode.fixed-aliases] configured agent models resolved", {
+            agents: resolved.data.map(({ id, model }) => ({ id, model })),
+          })
+        }),
+      ).pipe(Effect.orDie))
+
+      yield* ctx.session.hook("prompt", (request) =>
+        Effect.gen(function* () {
+          const session = yield* Effect.orDie(ctx.session.get({ sessionID: request.sessionID }))
+          const target = session.agent ? agentTargets.get(session.agent) : undefined
+          if (!target) return
+          if (session.model?.providerID === target.providerID &&
+              session.model?.id === target.id &&
+              session.model?.variant === target.variant) return
+
+          yield* Effect.logInfo("[opencode.fixed-aliases] applying fixed model to session", {
+            agent: session.agent,
+            previous: session.model,
+            target,
+            sessionID: request.sessionID,
+          })
+          yield* Effect.orDie(ctx.session.switchModel({ sessionID: request.sessionID, model: target }))
+        }),
+      )
+
+      yield* ctx.session.hook("model.request", (request) =>
+        Effect.logInfo("[opencode.fixed-aliases] model request", {
+          agent: request.agent,
+          model: request.model,
+          kind: request.kind,
+          sessionID: request.sessionID,
+        }),
+      )
     })
 })
 

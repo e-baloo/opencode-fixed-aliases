@@ -24,3 +24,21 @@ made it load correctly. The active `opencode.jsonc` keeps the normal
    `alias/coder` to verify its provider, model, and fixed variant.
 5. Update README installation instructions to state whether the package is
    published and which OpenCode versions support the configuration format.
+
+## Alias Resolution Lifecycle Fix
+
+OpenCode 2.0.29 loads user plugins before `opencode.config.agent`. An alias
+transform registered during setup therefore runs before configured agents are
+added. The local implementation listens for `agent.updated`, detects unresolved
+aliases, and re-registers its transform after the configuration transform.
+It reloads agents and verifies that no alias references remain.
+
+Primary sessions can still use the global default or a previously selected
+model even when the agent's model reference is resolved. The `prompt` hook
+therefore applies the fixed target and variant to sessions using alias-backed
+agents. Model selections for agents without aliases are unchanged. Manual model
+overrides for alias-backed agents are replaced by their governed alias target.
+
+Structured logs include each transform invocation, session model changes, and
+`model.request` events. Verify the primary request's provider, model, and variant
+instead of treating a successful text response as evidence of alias resolution.
