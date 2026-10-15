@@ -215,20 +215,17 @@ kind=primary
 A response of `OK`, a loaded plugin, or a Luna request with `kind=title` does not
 prove that the agent's primary response used Luna.
 
-## Install from an npm Registry (TODO)
+## Install from npm
 
-**TODO:** Publish `opencode-fixed-aliases` to the intended npm registry and verify
-installation with OpenCode 2.0.29. The package was not available in the public or
-corporate registries checked during this installation.
+The release workflow and the steps to configure npm publishing are documented in
+[RELEASE.md](RELEASE.md). After a version has been published and verified, install
+it with:
 
-After publication, document and test:
+```powershell
+opencode plugin add opencode-fixed-aliases@<published-version>
+```
 
-- The registry URL, package name, and supported versions.
-- Authentication for a private registry, without committing credentials.
-- The installation command, expected to be
-  `opencode plugin add opencode-fixed-aliases@<published-version>`.
-- Runtime dependency resolution, including the host-compatible `effect` peer.
-- Upgrade behavior and the model-request checks described above.
-
-Do not use the planned npm command as a working installation method until a
-published version has been verified.
+Replace `<published-version>` with a version that exists in the npm registry.
+Until then, use one of the GitHub installation options above. Verify runtime
+dependency resolution (including the host-compatible `effect` peer) and the
+model-request checks in this guide after installation.

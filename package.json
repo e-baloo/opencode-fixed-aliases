@@ -4,6 +4,10 @@
   "description": "Governed, fixed model aliases for OpenCode agents",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/e-baloo/opencode-fixed-aliases.git"
+  },
   "engines": {
     "node": ">=22"
   },

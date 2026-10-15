@@ -37,7 +37,8 @@ request; use `kind=primary` to distinguish agent responses from title generation
 ## Configuration
 
 See [INSTALL.md](INSTALL.md) for GitHub installation, the local cache workaround,
-verification steps, and the planned npm registry installation.
+and verification steps. See [RELEASE.md](RELEASE.md) for the GitHub Actions
+release pipeline and npm publishing setup.
 
 Add the plugin and its aliases to `opencode.jsonc`:
 
