@@ -117,7 +117,7 @@ repeat deployment if necessary.
 Edit the global `opencode.jsonc` in the config directory reported by
 `opencode debug paths`.
 
-This example assumes the `jcdecaux-responses` provider is already configured and
+This example assumes the `compagny-responses` provider is already configured and
 offers `gpt-5.6-luna` with the `high` variant. Replace the provider, model, and
 variant with values available in your installation.
 
@@ -131,7 +131,7 @@ specifier added by the installer instead.
             "package": "opencode-fixed-aliases",
             "options": {
                 "aliases": {
-                    "coder": "jcdecaux-responses/gpt-5.6-luna#high"
+                    "coder": "compagny-responses/gpt-5.6-luna#high"
                 }
             }
         }
@@ -177,7 +177,7 @@ causing `opencode api GET /api/plugin` to fail with
 that conversion; no shell-specific environment variable is needed.
 
 Check that `opencode.fixed-aliases` is active and that `obsequious` resolves to
-`jcdecaux-responses/gpt-5.6-luna` with variant `high`, rather than remaining on the
+`compagny-responses/gpt-5.6-luna` with variant `high`, rather than remaining on the
 `alias` provider.
 
 For the locally corrected version, inspect the actual request in OpenCode's log.
@@ -207,7 +207,7 @@ The primary request must contain:
 ```text
 agent=obsequious
 model.id=gpt-5.6-luna
-model.providerID=jcdecaux-responses
+model.providerID=compagny-responses
 model.variant=high
 kind=primary
 ```
