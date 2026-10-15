@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { Model } from "@opencode/schema/model"
+import { Effect } from "effect"
 import {
   FixedAliasesPlugin,
   parseAliasReference,
@@ -67,11 +68,11 @@ test("rewrites alias-backed agents through the OpenCode v2 agent transform", asy
   const context = {
     options: { aliases: { "company-review": "anthropic/claude-haiku-4-5" } },
     agent: {
-      transform: async (callback: (editor: TestEditor) => void) => callback(editor),
+      transform: (callback: (editor: TestEditor) => void) => Effect.sync(() => callback(editor)),
     },
   }
 
-  await FixedAliasesPlugin.setup(context as never)
+  await Effect.runPromise(Effect.scoped(FixedAliasesPlugin.effect(context as never)))
 
   assert.deepEqual(reviewer.model, Model.Ref.parse("anthropic/claude-haiku-4-5"))
 })
@@ -88,14 +89,12 @@ test("fails with an English error when an agent references an undefined alias", 
   const context = {
     options: { aliases: {} },
     agent: {
-      transform: async (callback: (editor: TestEditor) => void) => callback(editor),
+      transform: (callback: (editor: TestEditor) => void) => Effect.sync(() => callback(editor)),
     },
   }
 
   await assert.rejects(
-    async () => {
-      await FixedAliasesPlugin.setup(context as never)
-    },
+    Effect.runPromise(Effect.scoped(FixedAliasesPlugin.effect(context as never))),
     /unknown model alias 'missing-reviewer'/i,
   )
 })

@@ -1,5 +1,6 @@
-import { Plugin } from "@opencode/plugin"
+import { Plugin } from "@opencode/plugin/effect"
 import { Model } from "@opencode/schema/model"
+import { Effect } from "effect"
 
 export type ModelReference = Model.Ref
 
@@ -63,28 +64,37 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
 
 export const FixedAliasesPlugin = Plugin.define({
   id: "opencode.fixed-aliases",
-  setup: async (ctx) => {
-    const aliases = validateAliases(ctx.options.aliases)
+  effect: (ctx) =>
+    Effect.gen(function* () {
+      const aliases = validateAliases(ctx.options.aliases)
+      yield* Effect.logInfo("[opencode.fixed-aliases] setup started", { aliases: Object.keys(aliases) })
 
-    await ctx.agent.transform((editor) => {
-      for (const agent of editor.list()) {
-        const name = parseAliasReference(agent.model)
-        if (!name) continue
+      const mappedAgents: Array<{ agent: string; alias: string; target: string }> = []
+      yield* ctx.agent.transform((editor) => {
+        for (const agent of editor.list()) {
+          const name = parseAliasReference(agent.model)
+          if (!name) continue
 
-        const target = aliases[name]
-        if (!target) {
-          throw new Error(
-            `Unknown model alias '${name}' in agent '${agent.id}'. Add it to the plugin 'aliases' options.`,
-          )
+          const target = aliases[name]
+          if (!target) {
+            throw new Error(
+              `Unknown model alias '${name}' in agent '${agent.id}'. Add it to the plugin 'aliases' options.`,
+            )
+          }
+
+          const model = parseTarget(name, target)
+          editor.update(`${agent.id}`, (draft) => {
+            draft.model = model
+          })
+          mappedAgents.push({ agent: agent.id, alias: name, target })
         }
+      })
 
-        const model = parseTarget(name, target)
-        editor.update(`${agent.id}`, (draft) => {
-          draft.model = model
-        })
-      }
+      yield* Effect.logInfo("[opencode.fixed-aliases] alias transform registered", {
+        aliases: Object.keys(aliases),
+        mappings: mappedAgents,
+      })
     })
-  },
 })
 
 export default FixedAliasesPlugin
