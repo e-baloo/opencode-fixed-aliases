@@ -12,10 +12,12 @@
     "node": ">=22"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./index.js"
   },
   "files": [
-    "src/",
+    "index.js",
+    "dist/src/",
+    "INSTALL.md",
     "README.md",
     "LICENSE"
   ],

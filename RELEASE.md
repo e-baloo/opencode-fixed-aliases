@@ -8,6 +8,10 @@ dépendances, exécute `npm test` et vérifie le contenu de l'archive. Le workfl
 peut aussi être lancé manuellement depuis `main` pour exécuter ces validations
 sans publier sur npm.
 
+L'archive publiée contient `index.js`, `dist/`, `INSTALL.md`, `README.md` et
+`LICENSE`; les sources `src/` n'y sont pas incluses. Le job de publication
+reconstruit `dist/` dans son propre runner avant de publier.
+
 ## Tester sans publier
 
 Dans GitHub, ouvre **Actions → Publish to npm → Run workflow**, sélectionne la
