@@ -2,9 +2,19 @@
 
 Le workflow [publish-npm.yml](.github/workflows/publish-npm.yml) publie le paquet
 sur npm lorsqu'un tag `v*` est poussé. Il refuse de publier si le commit tagué
-n'est pas présent dans l'historique de la branche `main`. Il vérifie aussi que le
-tag correspond à la version de `package.json`, installe les dépendances, exécute
-`npm test`, vérifie le contenu de l'archive, puis publie avec provenance npm.
+n'est pas présent dans l'historique de la branche `main` ou si le tag ne
+correspond pas à la version de `package.json`. Avant publication, il installe les
+dépendances, exécute `npm test` et vérifie le contenu de l'archive. Le workflow
+peut aussi être lancé manuellement depuis `main` pour exécuter ces validations
+sans publier sur npm.
+
+## Tester sans publier
+
+Dans GitHub, ouvre **Actions → Publish to npm → Run workflow**, sélectionne la
+branche `main`, puis lance le workflow. Cette exécution installe les dépendances,
+exécute les tests et vérifie l'archive npm, mais ne publie rien et ne requiert
+aucun compte ou secret npm. Les déclenchements par tag restent réservés aux
+publications réelles.
 
 ## Configuration recommandée : Trusted Publishing (OIDC)
 
@@ -20,8 +30,9 @@ Cette méthode ne stocke pas de clé npm dans GitHub. GitHub fournit une identit
    - **Environment** : aucun, sauf si un environnement GitHub est ajouté au
      workflow et configuré à l'identique sur npm.
 3. Dans GitHub, vérifie que **Settings → Actions → General → Workflow
-   permissions** autorise les workflows à s'exécuter. Le workflow demande
-   `contents: read` et `id-token: write`; aucun secret ni variable GitHub n'est
+   permissions** autorise les workflows à s'exécuter. Le job de publication
+   demande `contents: read` et `id-token: write`; le job de validation manuelle
+   n'a pas accès à l'identité OIDC. Aucun secret ni variable GitHub n'est
    nécessaire en mode OIDC.
 4. Pour un paquet déjà publié, pousse un tag correspondant à la version du
    paquet (voir ci-dessous), puis vérifie **Actions → Publish to npm** et la
