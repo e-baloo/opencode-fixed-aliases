@@ -20,27 +20,20 @@ OpenCode agent model: anthropic/claude-4.5-haiku
 
 Keep agent and command workflows stable while changing the model target in one reviewed configuration entry.
 
-### OpenCode 2.0.29 Lifecycle
+## Install
 
-Configured agents can be added after user plugins initialize. This local version
-reorders its agent transform when an `agent.updated` event exposes unresolved
-aliases, then reloads and verifies the agent models.
+Install the plugin directly from GitHub:
 
-Before each user prompt, it also applies the alias target to the session's model.
-This replaces the global default, a persisted model selection, or a manual model
-override for an alias-backed agent. Agents without aliases are unaffected.
+```sh
+opencode plugin add github:e-baloo/opencode-fixed-aliases
+```
 
-Diagnostics use the `[opencode.fixed-aliases]` prefix in OpenCode logs. The
-`model request` entry records the actual provider, model, and variant for each
-request; use `kind=primary` to distinguish agent responses from title generation.
+OpenCode adds the plugin to your global configuration. Add the alias mappings
+under its `options` field as shown below.
 
 ## Configuration
 
-See [INSTALL.md](INSTALL.md) for GitHub installation, the local cache workaround,
-and verification steps. See [RELEASE.md](RELEASE.md) for the GitHub Actions
-release pipeline and npm publishing setup.
-
-Add the plugin and its aliases to `opencode.jsonc`:
+Add aliases to the plugin entry in `opencode.jsonc`:
 
 ```jsonc
 {
@@ -64,7 +57,6 @@ Use model IDs and variants available from providers configured in your OpenCode 
 ## Use an Alias
 
 Set an agent's model to `alias/<name>` in `opencode.jsonc`:
-
 ```jsonc
 {
   "agents": {
@@ -110,3 +102,17 @@ The test command type-checks against the OpenCode 2.0.29 plugin SDK and runs the
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+## Appendix: OpenCode 2.0.29 Lifecycle
+
+Configured agents can be added after user plugins initialize. This local version
+reorders its agent transform when an `agent.updated` event exposes unresolved
+aliases, then reloads and verifies the agent models.
+
+Before each user prompt, it also applies the alias target to the session's model.
+This replaces the global default, a persisted model selection, or a manual model
+override for an alias-backed agent. Agents without aliases are unaffected.
+
+Diagnostics use the `[opencode.fixed-aliases]` prefix in OpenCode logs. The
+`model request` entry records the actual provider, model, and variant for each
+request; use `kind=primary` to distinguish agent responses from title generation.
