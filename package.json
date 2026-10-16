@@ -12,18 +12,31 @@
     "node": ">=22"
   },
   "exports": {
-    ".": "./index.js"
-  },
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./server": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+  "keywords": [
+        "opencode",
+        "opencode-plugin",
+        "plugin",
+        "model",
+        "alias"
+    ],
   "files": [
-    "index.js",
-    "dist/src/",
+    "dist/",
     "INSTALL.md",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/test/*.test.js"
+    "build": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json",
+    "test": "npm run build && tsc -p tsconfig.test.json && node --test .test-dist/test/*.test.js"
   },
   "dependencies": {
     "@opencode/plugin": "2.0.29",
@@ -36,5 +49,6 @@
     "@types/node": "^22.19.0",
     "effect": "^4.0.0",
     "typescript": "^5.9.3"
-  }
+  },
+  "author": "e-Baloo"
 }
