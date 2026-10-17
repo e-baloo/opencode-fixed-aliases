@@ -40,7 +40,7 @@ Add aliases to the plugin entry in `opencode.jsonc`. Merge this example with you
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
     {
-      "package": "opencode-fixed-aliases@0.9.1",
+      "package": "opencode-fixed-aliases@0.9.2",
       "options": {
         "aliases": {
           "test-model": "opencode/nemotron-3.5-super-vl-free"

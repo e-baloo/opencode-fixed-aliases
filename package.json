@@ -1,6 +1,6 @@
 {
   "name": "opencode-fixed-aliases",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Governed, fixed model aliases for OpenCode agents",
   "type": "module",
   "license": "Apache-2.0",
@@ -30,7 +30,6 @@
     ],
   "files": [
     "dist/",
-    "INSTALL.md",
     "README.md",
     "LICENSE"
   ],
