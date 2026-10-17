@@ -1,6 +1,6 @@
 {
   "name": "opencode-fixed-aliases",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "Governed, fixed model aliases for OpenCode agents",
   "type": "module",
   "license": "Apache-2.0",
@@ -12,22 +12,22 @@
     "node": ">=22"
   },
   "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-        },
-        "./server": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-        }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
+    "./server": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "keywords": [
-        "opencode",
-        "opencode-plugin",
-        "plugin",
-        "model",
-        "alias"
-    ],
+    "opencode",
+    "opencode-plugin",
+    "plugin",
+    "model",
+    "alias"
+  ],
   "files": [
     "dist/",
     "README.md",
