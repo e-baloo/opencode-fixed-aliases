@@ -68,9 +68,26 @@ Set an agent's model to `alias/<name>` in `opencode.jsonc` or in the frontmatter
 
 > **Fixed model selection:** For an alias-backed agent, the configured target is enforced before each user prompt, including its variant when specified. A different model selected manually or saved in the session is replaced by the alias target. Agents without aliases are unaffected.
 
+### Chain Aliases
+
+In the plugin's `options.aliases` object, an alias may target another alias. This lets agents use role-oriented names while concrete model choices and fixed variants remain centralized:
+
+```jsonc
+{
+  "aliases": {
+    "model-base": "provider/model-base#mini",
+    "model-max": "provider/model-max#high",
+    "coder": "alias/model-base",
+    "architect": "alias/model-max"
+  }
+}
+```
+
+Alias chains are resolved during plugin setup, so declaration order does not matter. Chains may contain multiple aliases, but keeping them short makes configuration easier to follow. Every reference must exist, and cycles are rejected with an error. Put a fixed variant on the final concrete model target; variants cannot be added to an `alias/<name>` target.
+
 ## List Configured Aliases
 
-Run `/aliases` in a conversation to display every configured alias, its target model (including any fixed variant), and whether that model is present and enabled in OpenCode's current model catalog. A green indicator means the model is available; a red indicator means it is missing or disabled. If no aliases are configured, the command reports that explicitly.
+Run `/aliases` in a conversation to display every configured alias, its target (including the resolved concrete model and any fixed variant for chained aliases), and whether that model is present and enabled in OpenCode's current model catalog. A green indicator means the model is available; a red indicator means it is missing or disabled. If no aliases are configured, the command reports that explicitly.
 
 To verify resolution, send a prompt to the `test-model` agent and inspect OpenCode logs for `[opencode.fixed-aliases] model request` with `kind=primary`. Check that the logged model has provider `opencode` and model ID `nemotron-3.5-super-vl-free`. The `ALIAS_TEST_OK` response only confirms that the agent replied; it does not prove which model was used.
 
@@ -84,7 +101,7 @@ Put a variant in the alias definition so it stays part of the reviewed target. T
 }
 ```
 
-The plugin rejects `alias/test-model#high`; variants cannot be overridden at the use site. Alias names must start with an ASCII letter or digit and may then contain ASCII letters, digits, dots, underscores, and hyphens, but not `/` or `#`. Targets must follow `provider/model` or `provider/model#variant`.
+The plugin rejects `alias/test-model#high`; variants cannot be overridden at the use site or attached to an alias target. Alias names must start with an ASCII letter or digit and may then contain ASCII letters, digits, dots, underscores, and hyphens, but not `/` or `#`. A target must be a concrete `provider/model` (optionally with `#variant`) or another alias written as `alias/<name>`.
 
 ## Governance Note
 

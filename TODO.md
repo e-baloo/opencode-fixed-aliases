@@ -36,13 +36,6 @@ Follow-up actions from the project review, ordered by priority.
   - Document how to run the integration checks and any provider requirements.
   - Acceptance: a reproducible test validates the plugin against a real OpenCode runtime.
 
-- [ ] **Reject alias targets that reference the reserved `alias` provider.**
-  - Reject self-references such as `{ "fast": "alias/fast" }` during configuration validation.
-  - Reject chained references such as `{ "fast": "alias/review" }` with a clear error explaining that targets must identify a real provider and model.
-  - Add regression tests for self-references, chains, and cycles.
-  - Document that recursive alias resolution is unsupported.
-  - Acceptance: these configurations fail immediately with an actionable error instead of leaving unresolved aliases for later processing.
-
 ## Completion Checklist
 
 - [ ] Run `npm test` after implementation changes.

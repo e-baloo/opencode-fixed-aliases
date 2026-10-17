@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Support chained model aliases, with startup validation for missing references and cycles.
+
 ## 0.9.3
 
 - Add the `/aliases` command to list configured model aliases and their availability.

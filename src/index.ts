@@ -6,11 +6,12 @@ import { Effect, Stream } from "effect"
 export type ModelReference = Model.Ref
 
 export type ModelAliases = Record<string, string>
+export type ResolvedModelAliases = Map<string, ModelReference>
 
 const aliasNamePattern = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 
-export const validateAliases = (value: unknown): ModelAliases => {
-  if (value === undefined) return {}
+const validateAliasConfig = (value: unknown): { aliases: ModelAliases; resolved: ResolvedModelAliases } => {
+  if (value === undefined) return { aliases: {}, resolved: new Map() }
   if (!isRecord(value)) {
     throw new Error("The plugin option 'aliases' must be an object of alias-to-model mappings.")
   }
@@ -23,19 +24,24 @@ export const validateAliases = (value: unknown): ModelAliases => {
     if (typeof target !== "string") {
       throw new Error(`The target for alias '${name}' must be a model string.`)
     }
-    parseTarget(name, target)
+    if (target.startsWith("alias/")) parseAliasReference(target)
+    else parseTarget(name, target)
     aliases[name] = target
   }
 
-  return aliases
+  return { aliases, resolved: resolveAliases(aliases) }
 }
+
+export const validateAliases = (value: unknown): ModelAliases => validateAliasConfig(value).aliases
 
 export const parseAliasReference = (value: unknown): string | undefined => {
   if (typeof value === "string") {
     if (!value.startsWith("alias/")) return undefined
     const name = value.slice("alias/".length)
     if (!name || name.includes("#") || !aliasNamePattern.test(name)) {
-      throw new Error(`Invalid alias reference '${value}'. Variants are not allowed after an alias.`)
+      throw new Error(
+        `Invalid alias reference '${value}'. Variants are not allowed after an alias; additional path segments are invalid.`,
+      )
     }
     return name
   }
@@ -47,6 +53,47 @@ export const parseAliasReference = (value: unknown): string | undefined => {
     throw new Error("Alias model references must use 'alias/<name>' without a variant.")
   }
   return modelName
+}
+
+export const resolveAliases = (aliases: ModelAliases): ResolvedModelAliases => {
+  const resolved: ResolvedModelAliases = new Map()
+  const visiting: string[] = []
+
+  const resolve = (name: string): ModelReference => {
+    const cached = resolved.get(name)
+    if (cached) return cached
+
+    const cycleStart = visiting.indexOf(name)
+    if (cycleStart !== -1) {
+      const cycle = [...visiting.slice(cycleStart), name].join(" -> ")
+      throw new Error(`Alias cycle detected: ${cycle}`)
+    }
+
+    const target = aliases[name]
+    if (typeof target !== "string") {
+      const source = visiting.at(-1) ?? name
+      throw new Error(`Unknown model alias '${name}' referenced by alias '${source}'.`)
+    }
+
+    visiting.push(name)
+    let model: ModelReference
+    if (target.startsWith("alias/")) {
+      const targetAlias = parseAliasReference(target)!
+      if (!Object.hasOwn(aliases, targetAlias)) {
+        throw new Error(`Unknown model alias '${targetAlias}' referenced by alias '${name}'.`)
+      }
+      model = resolve(targetAlias)
+    } else {
+      model = parseTarget(name, target)
+    }
+    visiting.pop()
+
+    resolved.set(name, model)
+    return model
+  }
+
+  for (const name of Object.keys(aliases)) resolve(name)
+  return resolved
 }
 
 export const parseTarget = (alias: string, target: string): ModelReference => {
@@ -62,16 +109,19 @@ export const parseTarget = (alias: string, target: string): ModelReference => {
 export const formatAliases = (
   aliases: ModelAliases,
   models: readonly Pick<Model.Info, "providerID" | "id" | "enabled">[],
+  resolved: ResolvedModelAliases = resolveAliases(aliases),
 ): string => {
   const rows = Object.entries(aliases)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([alias, target]) => {
-      const model = parseTarget(alias, target)
+      const model = resolved.get(alias)!
       const available = models.some((candidate) =>
         candidate.providerID === model.providerID && candidate.id === model.id && candidate.enabled,
       )
       const status = available ? "🟢 Disponible" : "🔴 Indisponible"
-      return `| \`${alias}\` | \`${target.replaceAll("|", "\\|")}\` | ${status} |`
+      const resolvedTarget = `${model.providerID}/${model.id}${model.variant ? `#${model.variant}` : ""}`
+      const displayTarget = target.startsWith("alias/") ? `${target} → ${resolvedTarget}` : target
+      return `| \`${alias}\` | \`${displayTarget.replaceAll("|", "\\|")}\` | ${status} |`
     })
 
   if (rows.length === 0) return "Aucun alias de modèle n’est configuré."
@@ -93,7 +143,7 @@ export const FixedAliasesPlugin = Plugin.define({
   id: "opencode.fixed-aliases",
   effect: (ctx) =>
     Effect.gen(function* () {
-      const aliases = validateAliases(ctx.options.aliases)
+      const { aliases, resolved: resolvedAliases } = validateAliasConfig(ctx.options.aliases)
       yield* Effect.logInfo("[opencode.fixed-aliases] setup started", { aliases: Object.keys(aliases) })
 
       yield* ctx.command.transform((editor) => editor.add({
@@ -102,7 +152,7 @@ export const FixedAliasesPlugin = Plugin.define({
         execute: (input) =>
           Effect.gen(function* () {
             const catalog = yield* ctx.model.list({ location: { directory: ctx.location.directory } })
-            const text = formatAliases(aliases, catalog.data)
+            const text = formatAliases(aliases, catalog.data, resolvedAliases)
             yield* ctx.session.synthetic({
               sessionID: input.sessionID,
               text,
@@ -115,24 +165,24 @@ export const FixedAliasesPlugin = Plugin.define({
       const loggingContext = yield* Effect.context()
       let agentTargets = new Map<string, ModelReference>()
       const transform = (editor: AgentEditor) => {
-        const mappings: Array<{ agent: string; alias: string; target: string }> = []
+        const mappings: Array<{ agent: string; alias: string; target: string; resolved: ModelReference }> = []
         const targets = new Map<string, ModelReference>()
         for (const agent of editor.list()) {
           const name = parseAliasReference(agent.model)
           if (!name) continue
 
           const target = aliases[name]
-          if (!target) {
+          const model = resolvedAliases.get(name)
+          if (!target || !model) {
             throw new Error(
               `Unknown model alias '${name}' in agent '${agent.id}'. Add it to the plugin 'aliases' options.`,
             )
           }
 
-          const model = parseTarget(name, target)
           editor.update(`${agent.id}`, (draft) => {
             draft.model = model
           })
-          mappings.push({ agent: agent.id, alias: name, target })
+          mappings.push({ agent: agent.id, alias: name, target, resolved: model })
           targets.set(agent.id, model)
         }
         agentTargets = targets

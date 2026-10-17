@@ -8,6 +8,7 @@ import {
   formatAliases,
   parseAliasReference,
   parseTarget,
+  resolveAliases,
   validateAliases,
 } from "../src/index.js"
 
@@ -34,6 +35,41 @@ test("rejects malformed aliases and targets", () => {
   assert.throws(() => validateAliases({ fast: "openai/gpt-5##mini" }), /invalid target/i)
   assert.throws(() => validateAliases({ fast: "openai/gpt-5/extra" }), /invalid target/i)
   assert.throws(() => validateAliases({ fast: "openai/gpt-5#" }), /invalid target/i)
+})
+
+test("resolves alias chains independently of declaration order", () => {
+  const aliases = validateAliases({
+    architect: "alias/model-max",
+    coder: "alias/model-base",
+    "model-max": "openai/gpt-5.5-luna#high",
+    "model-base": "openai/gpt-5.5-sol#mini",
+  })
+  const resolved = resolveAliases(aliases)
+
+  assert.deepEqual(resolved.get("architect"), Model.Ref.parse("openai/gpt-5.5-luna#high"))
+  assert.deepEqual(resolved.get("coder"), Model.Ref.parse("openai/gpt-5.5-sol#mini"))
+  assert.deepEqual(resolved.get("model-max"), Model.Ref.parse("openai/gpt-5.5-luna#high"))
+})
+
+test("resolves multi-level aliases and rejects unknown references and cycles", () => {
+  assert.deepEqual(
+    resolveAliases(validateAliases({ role: "alias/tier", tier: "alias/model", model: "openai/gpt-5" })).get("role"),
+    Model.Ref.parse("openai/gpt-5"),
+  )
+  assert.throws(
+    () => validateAliases({ role: "alias/missing" }),
+    /unknown model alias 'missing' referenced by alias 'role'/i,
+  )
+  assert.throws(
+    () => validateAliases({ fast: "alias/fast" }),
+    /alias cycle detected: fast -> fast/i,
+  )
+  assert.throws(
+    () => validateAliases({ architect: "alias/reviewer", reviewer: "alias/architect" }),
+    /alias cycle detected: architect -> reviewer -> architect/i,
+  )
+  assert.throws(() => validateAliases({ role: "alias/model#high" }), /variants are not allowed/i)
+  assert.throws(() => validateAliases({ role: "alias/model/extra" }), /additional path segments/i)
 })
 
 test("recognizes string and structured alias references", () => {
@@ -76,6 +112,23 @@ test("formats configured aliases with their model availability", () => {
     ].join("\n"),
   )
   assert.equal(formatAliases({}, []), "Aucun alias de modèle n’est configuré.")
+})
+
+test("formats chained aliases with their resolved model and availability", () => {
+  const aliases = validateAliases({ architect: "alias/model-max", "model-max": "openai/gpt-5#high" })
+  const models = [{ providerID: "openai", id: "gpt-5", enabled: true }] as unknown as Model.Info[]
+
+  assert.equal(
+    formatAliases(aliases, models),
+    [
+      "| Alias | Modèle cible | Disponibilité |",
+      "| --- | --- | --- |",
+      "| `architect` | `alias/model-max → openai/gpt-5#high` | 🟢 Disponible |",
+      "| `model-max` | `openai/gpt-5#high` | 🟢 Disponible |",
+      "",
+      "La disponibilité indique si le modèle est présent et activé dans le catalogue OpenCode.",
+    ].join("\n"),
+  )
 })
 
 test("registers /aliases and displays its result in the current session", async () => {
@@ -141,6 +194,36 @@ test("rewrites alias-backed agents through the OpenCode v2 agent transform", asy
   assert.deepEqual(reviewer.model, Model.Ref.parse("anthropic/claude-haiku-4-5"))
 })
 
+test("rewrites chained alias-backed agents to their terminal concrete model", async () => {
+  const architect: TestAgent = { id: "architect", model: Model.Ref.parse("alias/architect") }
+  const editor: TestEditor = {
+    list: () => [architect],
+    update: (id, update) => {
+      assert.equal(id, "architect")
+      update(architect)
+    },
+  }
+  const context = {
+    event: { subscribe: () => Stream.empty },
+    command: commandDomain,
+    model: modelDomain,
+    session: { hook: () => Effect.void },
+    options: {
+      aliases: {
+        architect: "alias/model-max",
+        "model-max": "openai/gpt-5.5-luna#high",
+      },
+    },
+    agent: {
+      transform: (callback: (editor: TestEditor) => void) => Effect.sync(() => callback(editor)),
+    },
+  }
+
+  await Effect.runPromise(Effect.scoped(FixedAliasesPlugin.effect(context as never)))
+
+  assert.deepEqual(architect.model, Model.Ref.parse("openai/gpt-5.5-luna#high"))
+})
+
 test("fails with an English error when an agent references an undefined alias", async () => {
   const reviewer: TestAgent = {
     id: "reviewer",
@@ -177,7 +260,12 @@ test("resolves aliases after configured agents are registered", { timeout: 5000 
       location: { directory: "test-directory" },
       command: commandDomain,
       model: modelDomain,
-      options: { aliases: { "company-review": "openai/gpt-5.6-luna#high" } },
+      options: {
+        aliases: {
+          "company-review": "alias/company-review-tier",
+          "company-review-tier": "openai/gpt-5.6-luna#high",
+        },
+      },
       event: {
         subscribe: () => Stream.make({
           type: "agent.updated",
@@ -223,7 +311,12 @@ for (const scenario of [
     const context = {
       command: commandDomain,
       model: modelDomain,
-      options: { aliases: { "company-review": "openai/gpt-5.6-luna#high" } },
+      options: {
+        aliases: {
+          "company-review": "alias/company-review-tier",
+          "company-review-tier": "openai/gpt-5.6-luna#high",
+        },
+      },
       event: { subscribe: () => Stream.empty },
       agent: {
         transform: (callback: (editor: TestEditor) => void) => Effect.sync(() => callback({
