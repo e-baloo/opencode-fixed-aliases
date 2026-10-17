@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.3
+
+- Add the `/aliases` command to list configured model aliases and their availability.
+
 ## 0.9.2
 
 - Update installation, alias usage, and package-content documentation.
