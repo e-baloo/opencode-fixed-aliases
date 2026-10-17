@@ -1,5 +1,7 @@
 # OpenCode Fixed Aliases
 
+[GitHub](https://github.com/e-baloo/opencode-fixed-aliases) · [npm](https://www.npmjs.com/package/opencode-fixed-aliases)
+
 Give OpenCode agents stable, organization-friendly model names. Map each alias to an approved provider, model, and optional fixed variant, then update that mapping when the team migrates models.
 
 Designed for enterprise development teams, the plugin reduces repetitive edits across agents and commands that use those agents. A migration from one approved OpenAI model to another, or to an approved Anthropic model, becomes a change to the alias map rather than a sweep through agent definitions.
