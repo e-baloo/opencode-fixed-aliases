@@ -1,9 +1,11 @@
 import assert from "node:assert/strict"
 import test from "node:test"
+import type { CommandDefinition } from "@opencode/plugin/effect/command"
 import { Model } from "@opencode/schema/model"
 import { Deferred, Effect, Stream } from "effect"
 import {
   FixedAliasesPlugin,
+  formatAliases,
   parseAliasReference,
   parseTarget,
   validateAliases,
@@ -14,6 +16,9 @@ type TestEditor = {
   list(): TestAgent[]
   update(id: string, update: (agent: TestAgent) => void): void
 }
+
+const commandDomain = { transform: () => Effect.void }
+const modelDomain = { list: () => Effect.succeed({ data: [] }) }
 
 test("validates fixed model mappings, including a configured variant", () => {
   assert.deepEqual(
@@ -53,6 +58,61 @@ test("parses the configured model and its fixed variant", () => {
   })
 })
 
+test("formats configured aliases with their model availability", () => {
+  const models = [
+    { providerID: "openai", id: "gpt-5", enabled: true },
+    { providerID: "anthropic", id: "claude-haiku", enabled: false },
+  ] as unknown as Model.Info[]
+
+  assert.equal(
+    formatAliases({ zeta: "anthropic/claude-haiku#fast", alpha: "openai/gpt-5" }, models),
+    [
+      "| Alias | Modèle cible | Disponibilité |",
+      "| --- | --- | --- |",
+      "| `alpha` | `openai/gpt-5` | 🟢 Disponible |",
+      "| `zeta` | `anthropic/claude-haiku#fast` | 🔴 Indisponible |",
+      "",
+      "La disponibilité indique si le modèle est présent et activé dans le catalogue OpenCode.",
+    ].join("\n"),
+  )
+  assert.equal(formatAliases({}, []), "Aucun alias de modèle n’est configuré.")
+})
+
+test("registers /aliases and displays its result in the current session", async () => {
+  let execute: CommandDefinition["execute"] | undefined
+  let displayedText: string | undefined
+  const context = {
+    location: { directory: "test-directory" },
+    options: { aliases: { fast: "openai/gpt-5" } },
+    command: {
+      transform: (callback: (editor: { add: (definition: CommandDefinition) => void }) => void) =>
+        Effect.sync(() => callback({
+          add: (definition) => { execute = definition.execute },
+        })),
+    },
+    model: {
+      list: () => Effect.succeed({
+        data: [{ providerID: "openai", id: "gpt-5", enabled: true } as Model.Info],
+      }),
+    },
+    event: { subscribe: () => Stream.empty },
+    agent: { transform: () => Effect.void },
+    session: {
+      hook: () => Effect.void,
+      synthetic: (input: { text: string }) => Effect.sync(() => {
+        displayedText = input.text
+        return {}
+      }),
+    },
+  }
+
+  await Effect.runPromise(Effect.scoped(FixedAliasesPlugin.effect(context as never)))
+  assert.ok(execute)
+  await Effect.runPromise(execute({ sessionID: "test-session" as never, prompt: {} as never, delivery: "queue" }))
+
+  assert.match(displayedText ?? "", /`fast`.*`openai\/gpt-5`.*🟢 Disponible/)
+})
+
 test("rewrites alias-backed agents through the OpenCode v2 agent transform", async () => {
   const reviewer: TestAgent = {
     id: "reviewer",
@@ -67,6 +127,8 @@ test("rewrites alias-backed agents through the OpenCode v2 agent transform", asy
   }
   const context = {
     event: { subscribe: () => Stream.empty },
+    command: commandDomain,
+    model: modelDomain,
     session: { hook: () => Effect.void },
     options: { aliases: { "company-review": "anthropic/claude-haiku-4-5" } },
     agent: {
@@ -90,6 +152,8 @@ test("fails with an English error when an agent references an undefined alias", 
   }
   const context = {
     event: { subscribe: () => Stream.empty },
+    command: commandDomain,
+    model: modelDomain,
     session: { hook: () => Effect.void },
     options: { aliases: {} },
     agent: {
@@ -111,6 +175,8 @@ test("resolves aliases after configured agents are registered", { timeout: 5000 
     let reloads = 0
     const context = {
       location: { directory: "test-directory" },
+      command: commandDomain,
+      model: modelDomain,
       options: { aliases: { "company-review": "openai/gpt-5.6-luna#high" } },
       event: {
         subscribe: () => Stream.make({
@@ -155,6 +221,8 @@ for (const scenario of [
     let prompt: ((request: { sessionID: string }) => Effect.Effect<void>) | undefined
     const switches: Model.Ref[] = []
     const context = {
+      command: commandDomain,
+      model: modelDomain,
       options: { aliases: { "company-review": "openai/gpt-5.6-luna#high" } },
       event: { subscribe: () => Stream.empty },
       agent: {

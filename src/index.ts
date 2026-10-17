@@ -59,6 +59,32 @@ export const parseTarget = (alias: string, target: string): ModelReference => {
   return Model.Ref.parse(target)
 }
 
+export const formatAliases = (
+  aliases: ModelAliases,
+  models: readonly Pick<Model.Info, "providerID" | "id" | "enabled">[],
+): string => {
+  const rows = Object.entries(aliases)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([alias, target]) => {
+      const model = parseTarget(alias, target)
+      const available = models.some((candidate) =>
+        candidate.providerID === model.providerID && candidate.id === model.id && candidate.enabled,
+      )
+      const status = available ? "🟢 Disponible" : "🔴 Indisponible"
+      return `| \`${alias}\` | \`${target.replaceAll("|", "\\|")}\` | ${status} |`
+    })
+
+  if (rows.length === 0) return "Aucun alias de modèle n’est configuré."
+
+  return [
+    "| Alias | Modèle cible | Disponibilité |",
+    "| --- | --- | --- |",
+    ...rows,
+    "",
+    "La disponibilité indique si le modèle est présent et activé dans le catalogue OpenCode.",
+  ].join("\n")
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -69,6 +95,22 @@ export const FixedAliasesPlugin = Plugin.define({
     Effect.gen(function* () {
       const aliases = validateAliases(ctx.options.aliases)
       yield* Effect.logInfo("[opencode.fixed-aliases] setup started", { aliases: Object.keys(aliases) })
+
+      yield* ctx.command.transform((editor) => editor.add({
+        name: "aliases",
+        description: "Liste les alias de modèles configurés et leur disponibilité.",
+        execute: (input) =>
+          Effect.gen(function* () {
+            const catalog = yield* ctx.model.list({ location: { directory: ctx.location.directory } })
+            const text = formatAliases(aliases, catalog.data)
+            yield* ctx.session.synthetic({
+              sessionID: input.sessionID,
+              text,
+              description: "Alias de modèles",
+              delivery: input.delivery,
+            })
+          }),
+      }))
 
       const loggingContext = yield* Effect.context()
       let agentTargets = new Map<string, ModelReference>()

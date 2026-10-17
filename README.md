@@ -66,6 +66,10 @@ Set an agent's model to `alias/<name>` in `opencode.jsonc` or in the frontmatter
 
 > **Fixed model selection:** For an alias-backed agent, the configured target is enforced before each user prompt, including its variant when specified. A different model selected manually or saved in the session is replaced by the alias target. Agents without aliases are unaffected.
 
+## List Configured Aliases
+
+Run `/aliases` in a conversation to display every configured alias, its target model (including any fixed variant), and whether that model is present and enabled in OpenCode's current model catalog. A green indicator means the model is available; a red indicator means it is missing or disabled. If no aliases are configured, the command reports that explicitly.
+
 To verify resolution, send a prompt to the `test-model` agent and inspect OpenCode logs for `[opencode.fixed-aliases] model request` with `kind=primary`. Check that the logged model has provider `opencode` and model ID `nemotron-3.5-super-vl-free`. The `ALIAS_TEST_OK` response only confirms that the agent replied; it does not prove which model was used.
 
 ## Fixed Variants
